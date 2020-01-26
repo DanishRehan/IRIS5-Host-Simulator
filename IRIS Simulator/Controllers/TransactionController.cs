@@ -1,8 +1,7 @@
 ﻿using IRIS_Simulator.Models;
 using NLog;
-using Oracle.DataAccess.Client;
 using System;
-using System.Data;
+using System.Data.OracleClient;
 using System.Web.Http;
 using System.Web.Mvc;
 
@@ -11,7 +10,9 @@ namespace IRIS_Simulator.Controllers
     public class TransactionController : Controller
     {
         private static Logger logger = LogManager.GetCurrentClassLogger();
-        MyOracleConnection myCon = new MyOracleConnection();
+        OracleConnection con = new OracleConnection("Data Source = (DESCRIPTION = (ADDRESS_LIST = (ADDRESS = (PROTOCOL = TCP)(HOST = 192.168.4.164)" +
+            "(PORT = 1521)))(CONNECT_DATA =(SERVICE_NAME = MMBLRELEASE)));" +
+            "User ID=irgateway;Password=tpstps;");
 
         // GET: Transaction
         public ActionResult Index()
@@ -64,21 +65,26 @@ namespace IRIS_Simulator.Controllers
                 "\",\"timeLocalTran\":\"" + req.timeLocalTran + "\",\"dateLocalTran\":\" " + req.dateLocalTran +
                 "\",\"acqInstCode\":\"" + req.acqInstCode + "\",\"pinData\":\"" + req.pinData + "\"}]");
 
-            myCon.Connect();
-            OracleCommand query = new OracleCommand();
-            query.CommandText =
-                "" +
-                "  execute immediate 'create table test2(name varchar2(50) not null)';" +
-                "end;";
-            query.CommandType = CommandType.Text;
-            query.ExecuteNonQuery();
-            myCon.Close();
+            try
+            {
+                OracleCommand query = new OracleCommand("SELECT * FROM tblirgtransactionqueue WHERE controlreferencenumber = 'G4016134929854'");
+                query.Connection = con;
+                con.Open(); //oracle connection object
+                OracleDataReader reader = query.ExecuteReader();
+                reader.Read();
+                logger.Trace(reader.GetString(0));
+                con.Close();
+            }
+            catch (Exception ex)
+            {
+                logger.Trace(ex.ToString());
+            }
 
             TitleFetch TF = new TitleFetch(System.Configuration.ConfigurationManager.AppSettings["responseCode"].ToString(),
-                System.Configuration.ConfigurationManager.AppSettings["authIdResponse"].ToString(),
-                System.Configuration.ConfigurationManager.AppSettings["transactionLogId"].ToString(),
-                System.Configuration.ConfigurationManager.AppSettings["accountTitle"].ToString(),
-                System.Configuration.ConfigurationManager.AppSettings["benificiaryIBAN"].ToString());
+                        System.Configuration.ConfigurationManager.AppSettings["authIdResponse"].ToString(),
+                        System.Configuration.ConfigurationManager.AppSettings["transactionLogId"].ToString(),
+                        System.Configuration.ConfigurationManager.AppSettings["accountTitle"].ToString(),
+                        System.Configuration.ConfigurationManager.AppSettings["benificiaryIBAN"].ToString());
 
             logger.Trace("ApiTransactions::TitleFetch   |" + "Response Json [{\"responseCode\":\"" + System.Configuration.ConfigurationManager.AppSettings["responseCode"].ToString() +
                 "\",\"authIdResponse\":\"" + System.Configuration.ConfigurationManager.AppSettings["authIdResponse"].ToString() +
@@ -87,11 +93,6 @@ namespace IRIS_Simulator.Controllers
                 "\",\"benificiaryIBAN\":\"" + System.Configuration.ConfigurationManager.AppSettings["benificiaryIBAN"].ToString() + "\"}]");
             string myJson = Newtonsoft.Json.JsonConvert.SerializeObject(TF);
             return myJson;
-        }
-
-        private MyOracleConnection MyOracleConnection()
-        {
-            throw new NotImplementedException();
         }
 
         public string OpenAccountFundsTransfer()
