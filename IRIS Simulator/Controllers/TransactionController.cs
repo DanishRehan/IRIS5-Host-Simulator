@@ -9,10 +9,10 @@ namespace IRIS_Simulator.Controllers
 {
     public class TransactionController : Controller
     {
+        private string output;
+        private readonly string Dummy = System.Configuration.ConfigurationManager.AppSettings["Dummy"].ToString();
         private static Logger logger = LogManager.GetCurrentClassLogger();
-        OracleConnection con = new OracleConnection("Data Source = (DESCRIPTION = (ADDRESS_LIST = (ADDRESS = (PROTOCOL = TCP)(HOST = 192.168.4.164)" +
-            "(PORT = 1521)))(CONNECT_DATA =(SERVICE_NAME = MMBLRELEASE)));" +
-            "User ID=irgateway;Password=tpstps;");
+        private OracleConnection con = new OracleConnection(System.Configuration.ConfigurationManager.AppSettings["ConnString"].ToString());
 
         // GET: Transaction
         public ActionResult Index()
@@ -57,7 +57,7 @@ namespace IRIS_Simulator.Controllers
             }, null, 10000, 0);*/
             logger.Trace(Request.RawUrl);
             logger.Trace("ApiTransactions::TitleFetch   |" + "Request Json [{\"accountIMD\":\"" + req.accountIMD +
-                "\",\"Iban\":\"" + req.Iban + "\",\"accountNumber\":\" " + req.accountNumber +
+                "\",\"Iban\":\"" + req.Iban + "\",\"accountNumber\":\"" + req.accountNumber +
                 "\",\"accountType\":\"" + req.accountType + "\",\"accountCurrency\":\" " + req.accountCurrency +
                 "\",\"cardAccepTermId\":\"" + req.cardAccepTermId + "\",\"relationshipId\":\" " + req.relationshipId +
                 "\",\"transmissionDate\":\"" + req.transmissionDate + "\",\"transmissionTime\":\" " + req.transmissionTime +
@@ -65,34 +65,60 @@ namespace IRIS_Simulator.Controllers
                 "\",\"timeLocalTran\":\"" + req.timeLocalTran + "\",\"dateLocalTran\":\" " + req.dateLocalTran +
                 "\",\"acqInstCode\":\"" + req.acqInstCode + "\",\"pinData\":\"" + req.pinData + "\"}]");
 
-            try
+            if (Dummy.Equals("0"))
             {
-                OracleCommand query = new OracleCommand("SELECT * FROM tblirgtransactionqueue WHERE controlreferencenumber = 'G4016134929854'");
-                query.Connection = con;
-                con.Open(); //oracle connection object
-                OracleDataReader reader = query.ExecuteReader();
-                reader.Read();
-                logger.Trace(reader.GetString(0));
-                con.Close();
+                logger.Trace("DummyMode [NO]");
+                /*"CREATE TABLE "IRGATEWAY"."HOSTSIMULATOR"
+                 ("ACCOUNTNUMBER" VARCHAR2(40 BYTE),
+                  "ACCOUNTTITLE" VARCHAR2(100 BYTE),
+                  "AMOUNT" VARCHAR2(20 BYTE)
+                 );"*/
+                try
+                {
+                    OracleCommand query = new OracleCommand("SELECT accounttitle FROM hostsimulator WHERE accountnumber = " + req.accountNumber);
+                    query.Connection = con;
+                    con.Open(); //oracle connection object
+                    OracleDataReader reader = query.ExecuteReader();
+                    reader.Read();
+                    output = reader.GetString(0);
+                    con.Close();
+                }
+                catch (Exception ex)
+                {
+                    logger.Trace(ex.ToString());
+                }
+
+                TitleFetch TF = new TitleFetch(System.Configuration.ConfigurationManager.AppSettings["responseCode"].ToString(),
+                            System.Configuration.ConfigurationManager.AppSettings["authIdResponse"].ToString(),
+                            System.Configuration.ConfigurationManager.AppSettings["transactionLogId"].ToString(),
+                            output,
+                            System.Configuration.ConfigurationManager.AppSettings["benificiaryIBAN"].ToString());
+
+                logger.Trace("ApiTransactions::TitleFetch   |" + "Response Json [{\"responseCode\":\"" + System.Configuration.ConfigurationManager.AppSettings["responseCode"].ToString() +
+                    "\",\"authIdResponse\":\"" + System.Configuration.ConfigurationManager.AppSettings["authIdResponse"].ToString() +
+                    "\",\"transactionLogId\":\"" + System.Configuration.ConfigurationManager.AppSettings["transactionLogId"].ToString() +
+                    "\",\"accountTitle\":\"" + output +
+                    "\",\"benificiaryIBAN\":\"" + System.Configuration.ConfigurationManager.AppSettings["benificiaryIBAN"].ToString() + "\"}]");
+                string myJson = Newtonsoft.Json.JsonConvert.SerializeObject(TF);
+                return myJson;
             }
-            catch (Exception ex)
+            else
             {
-                logger.Trace(ex.ToString());
+                logger.Trace("DummyMode [YES]");
+                TitleFetch TF = new TitleFetch(System.Configuration.ConfigurationManager.AppSettings["responseCode"].ToString(),
+                            System.Configuration.ConfigurationManager.AppSettings["authIdResponse"].ToString(),
+                            System.Configuration.ConfigurationManager.AppSettings["transactionLogId"].ToString(),
+                            "Danish Rehan",
+                            System.Configuration.ConfigurationManager.AppSettings["benificiaryIBAN"].ToString());
+
+                logger.Trace("ApiTransactions::TitleFetch   |" + "Response Json [{\"responseCode\":\"" + System.Configuration.ConfigurationManager.AppSettings["responseCode"].ToString() +
+                    "\",\"authIdResponse\":\"" + System.Configuration.ConfigurationManager.AppSettings["authIdResponse"].ToString() +
+                    "\",\"transactionLogId\":\"" + System.Configuration.ConfigurationManager.AppSettings["transactionLogId"].ToString() +
+                    "\",\"accountTitle\":\"" + System.Configuration.ConfigurationManager.AppSettings["accountTitle"].ToString() +
+                    "\",\"benificiaryIBAN\":\"" + System.Configuration.ConfigurationManager.AppSettings["benificiaryIBAN"].ToString() + "\"}]");
+                string myJson = Newtonsoft.Json.JsonConvert.SerializeObject(TF);
+                return myJson;
             }
-
-            TitleFetch TF = new TitleFetch(System.Configuration.ConfigurationManager.AppSettings["responseCode"].ToString(),
-                        System.Configuration.ConfigurationManager.AppSettings["authIdResponse"].ToString(),
-                        System.Configuration.ConfigurationManager.AppSettings["transactionLogId"].ToString(),
-                        System.Configuration.ConfigurationManager.AppSettings["accountTitle"].ToString(),
-                        System.Configuration.ConfigurationManager.AppSettings["benificiaryIBAN"].ToString());
-
-            logger.Trace("ApiTransactions::TitleFetch   |" + "Response Json [{\"responseCode\":\"" + System.Configuration.ConfigurationManager.AppSettings["responseCode"].ToString() +
-                "\",\"authIdResponse\":\"" + System.Configuration.ConfigurationManager.AppSettings["authIdResponse"].ToString() +
-                "\",\"transactionLogId\":\"" + System.Configuration.ConfigurationManager.AppSettings["transactionLogId"].ToString() +
-                "\",\"accountTitle\":\"" + System.Configuration.ConfigurationManager.AppSettings["accountTitle"].ToString() +
-                "\",\"benificiaryIBAN\":\"" + System.Configuration.ConfigurationManager.AppSettings["benificiaryIBAN"].ToString() + "\"}]");
-            string myJson = Newtonsoft.Json.JsonConvert.SerializeObject(TF);
-            return myJson;
         }
 
         public string OpenAccountFundsTransfer()
