@@ -10,6 +10,7 @@ namespace IRIS_Simulator.Controllers
     public class TransactionController : Controller
     {
         private string output;
+        public string TFaccNotFound = "0201";
         private readonly string Dummy = System.Configuration.ConfigurationManager.AppSettings["Dummy"].ToString();
         private static Logger logger = LogManager.GetCurrentClassLogger();
         private OracleConnection con = new OracleConnection(System.Configuration.ConfigurationManager.AppSettings["ConnString"].ToString());
@@ -79,28 +80,59 @@ namespace IRIS_Simulator.Controllers
                     query.Connection = con;
                     con.Open(); //oracle connection object
                     OracleDataReader reader = query.ExecuteReader();
-                    reader.Read();
-                    output = reader.GetString(0);
+                    //int a = reader.Read().in;
+                    if (reader.Read())
+                    {
+                        output = reader.GetString(0);
+                    }
                     con.Close();
+                }
+                catch(OracleException)
+                {
+                    logger.Trace("No records found.");
+                    throw;
                 }
                 catch (Exception ex)
                 {
                     logger.Trace(ex.ToString());
                 }
+                logger.Trace("Output: " + output);
+                logger.Trace("Account: " + req.accountNumber);
+                logger.Trace(output != null);
+                if (output != null)
+                {
+                    logger.Trace("Account Found");
+                    TitleFetch TF = new TitleFetch("00",
+                                System.Configuration.ConfigurationManager.AppSettings["authIdResponse"].ToString(),
+                                System.Configuration.ConfigurationManager.AppSettings["transactionLogId"].ToString(),
+                                output,
+                                System.Configuration.ConfigurationManager.AppSettings["benificiaryIBAN"].ToString());
 
-                TitleFetch TF = new TitleFetch(System.Configuration.ConfigurationManager.AppSettings["responseCode"].ToString(),
-                            System.Configuration.ConfigurationManager.AppSettings["authIdResponse"].ToString(),
-                            System.Configuration.ConfigurationManager.AppSettings["transactionLogId"].ToString(),
-                            output,
-                            System.Configuration.ConfigurationManager.AppSettings["benificiaryIBAN"].ToString());
+                    logger.Trace("ApiTransactions::TitleFetch   |" + "Response Json [{\"responseCode\":\"" + "00" +
+                        "\",\"authIdResponse\":\"" + System.Configuration.ConfigurationManager.AppSettings["authIdResponse"].ToString() +
+                        "\",\"transactionLogId\":\"" + System.Configuration.ConfigurationManager.AppSettings["transactionLogId"].ToString() +
+                        "\",\"accountTitle\":\"" + output +
+                        "\",\"benificiaryIBAN\":\"" + System.Configuration.ConfigurationManager.AppSettings["benificiaryIBAN"].ToString() + "\"}]");
+                    string myJson = Newtonsoft.Json.JsonConvert.SerializeObject(TF);
+                    return myJson;
+                }
+                else
+                {
+                    logger.Trace("Account Not Found");
+                    TitleFetch TF = new TitleFetch(TFaccNotFound,
+                                System.Configuration.ConfigurationManager.AppSettings["authIdResponse"].ToString(),
+                                System.Configuration.ConfigurationManager.AppSettings["transactionLogId"].ToString(),
+                                output,
+                                System.Configuration.ConfigurationManager.AppSettings["benificiaryIBAN"].ToString());
 
-                logger.Trace("ApiTransactions::TitleFetch   |" + "Response Json [{\"responseCode\":\"" + System.Configuration.ConfigurationManager.AppSettings["responseCode"].ToString() +
-                    "\",\"authIdResponse\":\"" + System.Configuration.ConfigurationManager.AppSettings["authIdResponse"].ToString() +
-                    "\",\"transactionLogId\":\"" + System.Configuration.ConfigurationManager.AppSettings["transactionLogId"].ToString() +
-                    "\",\"accountTitle\":\"" + output +
-                    "\",\"benificiaryIBAN\":\"" + System.Configuration.ConfigurationManager.AppSettings["benificiaryIBAN"].ToString() + "\"}]");
-                string myJson = Newtonsoft.Json.JsonConvert.SerializeObject(TF);
-                return myJson;
+                    logger.Trace("ApiTransactions::TitleFetch   |" + "Response Json [{\"responseCode\":\"" + TFaccNotFound +
+                        "\",\"authIdResponse\":\"" + System.Configuration.ConfigurationManager.AppSettings["authIdResponse"].ToString() +
+                        "\",\"transactionLogId\":\"" + System.Configuration.ConfigurationManager.AppSettings["transactionLogId"].ToString() +
+                        "\",\"accountTitle\":\"" + output +
+                        "\",\"benificiaryIBAN\":\"" + System.Configuration.ConfigurationManager.AppSettings["benificiaryIBAN"].ToString() + "\"}]");
+                    string myJson = Newtonsoft.Json.JsonConvert.SerializeObject(TF);
+                    return myJson;
+                }
             }
             else
             {
