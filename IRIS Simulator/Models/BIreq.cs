@@ -1,13 +1,11 @@
-﻿namespace IRIS_Simulator.Controllers
+﻿namespace IRIS_Simulator.Models
 {
-    public class TFreq
+    public class BIreq
     {
-        public string accountIMD { get; set; }
-        public string Iban { get; set; }
         public string accountNumber { get; set; }
         public string accountType { get; set; }
         public string accountCurrency { get; set; }
-        public string cardAccepTermId { get; set; }
+        public string accountIMD { get; set; }
         public string relationshipId { get; set; }
         public string transmissionDate { get; set; }
         public string transmissionTime { get; set; }

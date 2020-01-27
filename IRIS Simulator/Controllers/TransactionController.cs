@@ -10,7 +10,8 @@ namespace IRIS_Simulator.Controllers
     public class TransactionController : Controller
     {
         private string output;
-        public string TFaccNotFound = "0201";
+        public string accNotFound = "0201";
+        public string success = "00";
         private readonly string Dummy = System.Configuration.ConfigurationManager.AppSettings["Dummy"].ToString();
         private static Logger logger = LogManager.GetCurrentClassLogger();
         private OracleConnection con = new OracleConnection(System.Configuration.ConfigurationManager.AppSettings["ConnString"].ToString());
@@ -35,27 +36,100 @@ namespace IRIS_Simulator.Controllers
             return myJson;
         }
 
-        public string OpenAccountBalanceInquiry()
+        public string OpenAccountBalanceInquiry([FromBody]BIreq req)
         {
             //"responseCode", "authIdResponse", "transactionLogId", "availableBalance", "actualBalance"
-            OpenBalanceInquiry BI = new OpenBalanceInquiry(System.Configuration.ConfigurationManager.AppSettings["responseCode"].ToString(),
+            logger.Trace(Request.RawUrl);
+            logger.Trace("ApiTransactions::OpenAccountBalanceInquiry   |" + "Request Json [{\"accountNumber\":\"" + req.accountNumber +
+                "\",\"accountType\":\"" + req.accountType + "\",\"accountCurrency\":\"" + req.accountCurrency +
+                "\",\"accountIMD\":\"" + req.accountIMD + "\",\"relationshipId\":\" " + req.relationshipId +
+                "\",\"transmissionDate\":\"" + req.transmissionDate + "\",\"transmissionTime\":\" " + req.transmissionTime +
+                "\",\"stan\":\"" + req.stan + "\",\"rrn\":\" " + req.rrn +
+                "\",\"timeLocalTran\":\"" + req.timeLocalTran + "\",\"dateLocalTran\":\" " + req.dateLocalTran +
+                "\",\"acqInstCode\":\"" + req.acqInstCode + "\",\"pinData\":\" " + req.pinData + "\"}]");
+
+            if (Dummy.Equals("0"))
+            {
+                logger.Trace("DummyMode [NO]");
+                try
+                {
+                    OracleCommand query = new OracleCommand("SELECT amount FROM hostsimulator WHERE accountnumber = " + req.accountNumber);
+                    query.Connection = con;
+                    con.Open(); //oracle connection object
+                    OracleDataReader reader = query.ExecuteReader();
+                    //int a = reader.Read().in;
+                    if (reader.Read())
+                    {
+                        output = reader.GetString(0);
+                    }
+                    con.Close();
+                }
+                catch (OracleException)
+                {
+                    logger.Trace("No records found.");
+                }
+                catch (Exception ex)
+                {
+                    logger.Trace(ex.ToString());
+                }
+                logger.Trace("Retrieved: " + output);
+                if (output != null)
+                {
+                    logger.Trace("Account Found");
+                    OpenBalanceInquiry BI = new OpenBalanceInquiry(System.Configuration.ConfigurationManager.AppSettings["responseCode"].ToString(),
+                    System.Configuration.ConfigurationManager.AppSettings["authIdResponse"].ToString(),
+                    System.Configuration.ConfigurationManager.AppSettings["transactionLogId"].ToString(),
+                    output,
+                    output);
+
+                    logger.Trace("ApiTransactions::OpenAccountBalanceInquiry   |" + "Response Json [{\"responseCode\":\"" + success +
+                            "\",\"authIdResponse\":\"" + System.Configuration.ConfigurationManager.AppSettings["authIdResponse"].ToString() +
+                            "\",\"transactionLogId\":\"" + System.Configuration.ConfigurationManager.AppSettings["transactionLogId"].ToString() +
+                            "\",\"availableBalance\":\"" + output +
+                            "\",\"actualBalance\":\"" + output + "\"}]");
+                    string myJson = Newtonsoft.Json.JsonConvert.SerializeObject(BI);
+                    return myJson;
+                }
+                else
+                {
+                    logger.Trace("Account Not Found");
+                    OpenBalanceInquiry BI = new OpenBalanceInquiry(accNotFound,
+                    System.Configuration.ConfigurationManager.AppSettings["authIdResponse"].ToString(),
+                    System.Configuration.ConfigurationManager.AppSettings["transactionLogId"].ToString(),
+                    output,
+                    output);
+
+                    logger.Trace("ApiTransactions::OpenAccountBalanceInquiry   |" + "Response Json [{\"responseCode\":\"" + accNotFound +
+                            "\",\"authIdResponse\":\"" + System.Configuration.ConfigurationManager.AppSettings["authIdResponse"].ToString() +
+                            "\",\"transactionLogId\":\"" + System.Configuration.ConfigurationManager.AppSettings["transactionLogId"].ToString() +
+                            "\",\"availableBalance\":\"" + output +
+                            "\",\"actualBalance\":\"" + output + "\"}]");
+                    string myJson = Newtonsoft.Json.JsonConvert.SerializeObject(BI);
+                    return myJson;
+                }
+            }
+            else
+            {
+                logger.Trace("DummyMode [YES]");
+                OpenBalanceInquiry BI = new OpenBalanceInquiry(System.Configuration.ConfigurationManager.AppSettings["responseCode"].ToString(),
                 System.Configuration.ConfigurationManager.AppSettings["authIdResponse"].ToString(),
                 System.Configuration.ConfigurationManager.AppSettings["transactionLogId"].ToString(),
                 System.Configuration.ConfigurationManager.AppSettings["availableBalance"].ToString(),
                  System.Configuration.ConfigurationManager.AppSettings["actualBalance"].ToString());
-            string myJson = Newtonsoft.Json.JsonConvert.SerializeObject(BI);
-            return myJson;
+
+                logger.Trace("ApiTransactions::OpenAccountBalanceInquiry   |" + "Response Json [{\"responseCode\":\"" + System.Configuration.ConfigurationManager.AppSettings["responseCode"].ToString() +
+                        "\",\"authIdResponse\":\"" + System.Configuration.ConfigurationManager.AppSettings["authIdResponse"].ToString() +
+                        "\",\"transactionLogId\":\"" + System.Configuration.ConfigurationManager.AppSettings["transactionLogId"].ToString() +
+                        "\",\"availableBalance\":\"" + System.Configuration.ConfigurationManager.AppSettings["availableBalance"].ToString() +
+                        "\",\"actualBalance\":\"" + System.Configuration.ConfigurationManager.AppSettings["actualBalance"].ToString() + "\"}]");
+                string myJson = Newtonsoft.Json.JsonConvert.SerializeObject(BI);
+                return myJson;
+            }
         }
 
-        public string TitleFetch([FromBody]TfReq req)
+        public string TitleFetch([FromBody]TFreq req)
         {
             //"responseCode", "authIdResponse", "transactionLogId", "accountTitle", "benificiaryIBAN"
-
-            /*AsyncManager.OutstandingOperations.Increment();
-            new Timer((state) => {
-                AsyncManager.Parameters["responseCode"] = "responseCode";
-                AsyncManager.OutstandingOperations.Decrement();
-            }, null, 10000, 0);*/
             logger.Trace(Request.RawUrl);
             logger.Trace("ApiTransactions::TitleFetch   |" + "Request Json [{\"accountIMD\":\"" + req.accountIMD +
                 "\",\"Iban\":\"" + req.Iban + "\",\"accountNumber\":\"" + req.accountNumber +
@@ -87,28 +161,25 @@ namespace IRIS_Simulator.Controllers
                     }
                     con.Close();
                 }
-                catch(OracleException)
+                catch (OracleException)
                 {
                     logger.Trace("No records found.");
-                    throw;
                 }
                 catch (Exception ex)
                 {
                     logger.Trace(ex.ToString());
                 }
-                logger.Trace("Output: " + output);
-                logger.Trace("Account: " + req.accountNumber);
-                logger.Trace(output != null);
+                logger.Trace("Retrieved: " + output);
                 if (output != null)
                 {
                     logger.Trace("Account Found");
-                    TitleFetch TF = new TitleFetch("00",
+                    TitleFetch TF = new TitleFetch(success,
                                 System.Configuration.ConfigurationManager.AppSettings["authIdResponse"].ToString(),
                                 System.Configuration.ConfigurationManager.AppSettings["transactionLogId"].ToString(),
                                 output,
                                 System.Configuration.ConfigurationManager.AppSettings["benificiaryIBAN"].ToString());
 
-                    logger.Trace("ApiTransactions::TitleFetch   |" + "Response Json [{\"responseCode\":\"" + "00" +
+                    logger.Trace("ApiTransactions::TitleFetch   |" + "Response Json [{\"responseCode\":\"" + success +
                         "\",\"authIdResponse\":\"" + System.Configuration.ConfigurationManager.AppSettings["authIdResponse"].ToString() +
                         "\",\"transactionLogId\":\"" + System.Configuration.ConfigurationManager.AppSettings["transactionLogId"].ToString() +
                         "\",\"accountTitle\":\"" + output +
@@ -119,13 +190,13 @@ namespace IRIS_Simulator.Controllers
                 else
                 {
                     logger.Trace("Account Not Found");
-                    TitleFetch TF = new TitleFetch(TFaccNotFound,
+                    TitleFetch TF = new TitleFetch(accNotFound,
                                 System.Configuration.ConfigurationManager.AppSettings["authIdResponse"].ToString(),
                                 System.Configuration.ConfigurationManager.AppSettings["transactionLogId"].ToString(),
                                 output,
                                 System.Configuration.ConfigurationManager.AppSettings["benificiaryIBAN"].ToString());
 
-                    logger.Trace("ApiTransactions::TitleFetch   |" + "Response Json [{\"responseCode\":\"" + TFaccNotFound +
+                    logger.Trace("ApiTransactions::TitleFetch   |" + "Response Json [{\"responseCode\":\"" + accNotFound +
                         "\",\"authIdResponse\":\"" + System.Configuration.ConfigurationManager.AppSettings["authIdResponse"].ToString() +
                         "\",\"transactionLogId\":\"" + System.Configuration.ConfigurationManager.AppSettings["transactionLogId"].ToString() +
                         "\",\"accountTitle\":\"" + output +

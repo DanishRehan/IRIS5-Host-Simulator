@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Web;
-
-namespace IRIS_Simulator.Models
+﻿namespace IRIS_Simulator.Models
 {
     public class OpenBalanceInquiry
     {
@@ -12,6 +7,7 @@ namespace IRIS_Simulator.Models
         public string transactionLogId { get; set; }
         public string availableBalance { get; set; }
         public string actualBalance { get; set; }
+
         public OpenBalanceInquiry(string res, string auth, string log, string bal, string abal)
         {
             this.responseCode = res;
